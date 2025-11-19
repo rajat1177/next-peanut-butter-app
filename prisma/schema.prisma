@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Ensure you have DATABASE_URL set in your .env file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------
+// 1. AUTHENTICATION & USERS (CLERK)
+// -----------------------------------------------------------
+
+// Roles for application-level authorization
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// The User model is the application's profile, linked by Clerk's ID.
+model User {
+  // Clerk's user ID is used as the primary key.
+  id        String   @id
+  email     String   @unique
+  role      UserRole @default(USER)
+  name      String?
+  image     String?
+  createdAt DateTime @default(now())
+
+  // Relationships
+  cartItems CartItem[]
+  orders    Order[]
+  reviews   Review[] // ✅ FIX: Added missing back-relation for Review model
+}
+
+// -----------------------------------------------------------
+// 2. PRODUCTS & VARIATIONS
+// -----------------------------------------------------------
+
+// The main product (e.g., "Classic Peanut Butter"). 
+// Inventory, price, and specific attributes are stored on the Variant model.
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique // e.g., "classic-peanut-butter"
+  description String?
+  images      String[]  // Array of image URLs for the main product gallery
+  isFeatured  Boolean   @default(false)
+  
+  // Relationships
+  variants    Variant[] // A Product has many Variants (sizes, textures, etc.)
+  reviews     Review[]
+  
+  // NOTE: OrderItems and CartItems now link directly to Variant, 
+  // so these relations are removed from the Product model.
+}
+
+// Represents a specific SKU/Variant (e.g., "Classic - Crunchy - 16oz")
+model Variant {
+  id          String    @id @default(cuid())
+  productId   String    // Foreign key to the parent Product
+  sku         String    @unique // Unique stock-keeping unit
+  
+  // Attributes (Specific to Peanut Butter E-commerce)
+  sizeOz      Int       // e.g., 16, 32
+  texture     Texture   // Enum: CREAMY or CRUNCHY
+  isOrganic   Boolean   @default(false)
+
+  // Pricing & Inventory (stored here because it varies by SKU)
+  price       Int       // Price in cents (or smallest currency unit)
+  inventory   Int       @default(0)
+
+  // Relationships
+  product     Product   @relation(fields: [productId], references: [id])
+  cartItems   CartItem[]  // ✅ FIX: Added missing back-relation for CartItem
+  orderItems  OrderItem[] // ✅ FIX: Added missing back-relation for OrderItem
+}
+
+// -----------------------------------------------------------
+// 3. CART, ORDERS, & REVIEWS
+// -----------------------------------------------------------
+
+model CartItem {
+  id        String @id @default(cuid())
+  userId    String
+  variantId String // Links to the specific Variant/SKU
+
+  quantity  Int    @default(1)
+
+  // Relationships
+  user      User    @relation(fields: [userId], references: [id])
+  variant   Variant @relation(fields: [variantId], references: [id])
+  
+  @@unique([userId, variantId]) // A user can only have one entry per variant in their cart
+}
+
+model Order {
+  id           String    @id @default(cuid())
+  userId       String
+  amount       Int       // Total order amount in cents
+  currency     String    @default("INR")
+  status       OrderStatus @default(PENDING)
+  paymentId    String?   // ID from payment provider (Razorpay, Stripe, etc.)
+  
+  shippingAddress Json?   // Store address details as JSON
+  razorpayOrderId String?
+
+  createdAt    DateTime  @default(now())
+
+  // Relationships
+  user         User      @relation(fields: [userId], references: [id])
+  orderItems   OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  variantId String  // Links to the specific Variant/SKU
+  quantity  Int
+  price     Int     // Price at the time of purchase (for reporting)
+
+  // Relationships
+  order     Order   @relation(fields: [orderId], references: [id])
+  variant   Variant @relation(fields: [variantId], references: [id])
+}
+
+model Review {
+  id        String @id @default(cuid())
+  productId String // Links to the main Product (not the variant)
+  userId    String // Links to the User who wrote the review
+  rating    Int    // 1 to 5 stars
+  title     String?
+  content   String?
+  createdAt DateTime @default(now())
+
+  product   Product @relation(fields: [productId], references: [id])
+  user      User    @relation(fields: [userId], references: [id]) // This already has a back-relation
+  
+  @@unique([productId, userId]) // A user can only review a product once
+}
+
+// -----------------------------------------------------------
+// 4. ENUMS
+// -----------------------------------------------------------
+
+// Specific attributes for your peanut butter product
+enum Texture {
+  CREAMY
+  CRUNCHY
+  EXTRA_CRUNCHY
+  SMOOTH
+}
+
+// States for an order
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}

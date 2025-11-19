@@ -8,10 +8,21 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "dependencies": {
+    "@clerk/nextjs": "^6.35.2",
+    "@prisma/client": "^6.19.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.0",
+    "crypto": "^1.0.1",
+    "gsap": "^3.13.0",
     "next": "16.0.3",
+    "razorpay": "^2.9.6",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "three": "^0.181.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -20,7 +31,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
+    "prisma": "^6.19.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }
